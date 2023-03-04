@@ -11,6 +11,3 @@ CREATE TABLE EtatStock (
     US 			VARCHAR(MAX),
     Statut 		CHAR(1)
 );
-
-
-// Algo
