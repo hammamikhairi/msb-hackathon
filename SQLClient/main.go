@@ -28,19 +28,23 @@ type SQLClient struct {
 }
 
 const (
-	TB_PICKING string = "Picking (Emplacement, Article) "
+	TBN_PICKING string = "Picking"
+	TBN_STOCK   string = "EtatStock"
+	TBN_USERS   string = "Users"
+
+	TB_PICKING string = "Picking (Emplacement, Article, Quantite, Capicite) "
 	TB_STOCK   string = "EtatStock (Emplacement, Article, Lot, Sous_lot, Quantite, US, Statut) "
 	TB_USERS   string = "Users (UserId, UserName, UserRole) "
 )
 
 func mainExamp() {
-	sqlc := OpenConn(server, user, password, database, port)
+	sqlc := OpenConn()
 	sqlc.Push("TEST")
 }
 
 func mainPushRowsTest() {
 
-	sqlc := OpenConn(server, user, password, database, port)
+	sqlc := OpenConn()
 
 	rows, err := LoadCSVData("test.csv")
 	if err != nil {
@@ -104,7 +108,7 @@ func LoadCSVData(filename string) ([][]any, error) {
 	return result, nil
 }
 
-func OpenConn(server, user, password, database string, port int) *SQLClient {
+func OpenConn() *SQLClient {
 
 	connString := fmt.Sprintf("server=%s;user id=%s;password=%s;port=%d;database=%s;",
 		server, user, password, port, database)
@@ -124,8 +128,8 @@ func OpenConn(server, user, password, database string, port int) *SQLClient {
 	}
 }
 
-func (sc *SQLClient) GetRows(db *sql.DB, query string) *sql.Rows {
-	rows, err := db.Query(query)
+func (sc *SQLClient) GetRows(query string) *sql.Rows {
+	rows, err := sc.db.Query(query)
 	if err != nil {
 		panic(err.Error())
 	}
