@@ -1,0 +1,16 @@
+
+// Storage table :
+
+* Creation:
+CREATE TABLE EtatStock (
+    Emplacement VARCHAR(MAX),
+    Article 	VARCHAR(MAX),
+    Lot 		VARCHAR(MAX),
+    Sous_lot 	VARCHAR(MAX),
+    Quantite 	INT,
+    US 			VARCHAR(MAX),
+    Statut 		CHAR(1)
+);
+
+
+// Algo
