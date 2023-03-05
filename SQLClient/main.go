@@ -31,10 +31,12 @@ const (
 	TBN_PICKING string = "Picking"
 	TBN_STOCK   string = "EtatStock"
 	TBN_USERS   string = "Users"
+	TBN_HISTORY string = "History"
 
 	TB_PICKING string = "Picking (Emplacement, Article, Quantite, Capicite) "
 	TB_STOCK   string = "EtatStock (Emplacement, Article, Lot, Sous_lot, Quantite, US, Statut) "
 	TB_USERS   string = "Users (UserId, UserName, UserRole) "
+	TB_HISTORY string = "History (Article, Op, Qte, PosEnStock, Lot, Sous_lot) "
 )
 
 func mainExamp() {
@@ -51,27 +53,6 @@ func mainPushRowsTest() {
 		panic(err)
 	}
 	sqlc.PushRows(rows, TB_USERS)
-
-}
-
-func loadDataExamp() {
-	// Build connection string
-	// rows := GetRows(db, "select * from EtatStock")
-	// defer rows.Close()
-	// // rows.Next()
-	// {
-	// 	cols, err := rows.ColumnTypes()
-	// 	if err != nil {
-	// 		panic(err.Error())
-	// 	}
-	// 	for _, col := range cols {
-
-	// 		fmt.Printf("%+v\n", col.ScanType())
-	// 	}
-	// }
-
-	// Push(db, "zebi")
-	// pushRows(db, [][]any{vals})
 
 }
 
