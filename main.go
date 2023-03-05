@@ -16,7 +16,7 @@ func term(endp string) {
 var sqlc *scl.SQLClient = scl.OpenConn()
 
 func hello(w http.ResponseWriter, req *http.Request) {
-	term("He row.Next() {llo")
+	term("Hello")
 	fmt.Fprintf(w, "hello\n")
 }
 
@@ -61,7 +61,10 @@ func getPicking(w http.ResponseWriter, req *http.Request) {
 		res.Produits = append(res.Produits, new)
 	}
 
+	// w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 	w.Header().Set("Content-Type", "application/json")
+	// w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+	// w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.WriteHeader(http.StatusOK)
 
 	json.NewEncoder(w).Encode(res)
@@ -179,7 +182,7 @@ func main() {
 	http.HandleFunc("/stock", getStock)
 	println("zebi")
 
-	if err := http.ListenAndServe("localhost:5051", nil); err != nil {
+	if err := http.ListenAndServe("localhost:5050", nil); err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
 }
