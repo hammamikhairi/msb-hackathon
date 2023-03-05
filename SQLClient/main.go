@@ -109,6 +109,15 @@ func OpenConn() *SQLClient {
 	}
 }
 
+func (sc *SQLClient) Query(query string) {
+	rows, err := sc.db.Query(query)
+	if err != nil {
+		panic(err.Error())
+	}
+	rows.Close()
+
+}
+
 func (sc *SQLClient) GetRows(query string) *sql.Rows {
 	rows, err := sc.db.Query(query)
 	if err != nil {

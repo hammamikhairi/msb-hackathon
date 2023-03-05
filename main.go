@@ -62,6 +62,9 @@ func getPicking(w http.ResponseWriter, req *http.Request) {
 		res.Picking = append(res.Picking, new)
 	}
 
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
@@ -86,6 +89,9 @@ func getStock(w http.ResponseWriter, req *http.Request) {
 		res.Produits = append(res.Produits, new)
 	}
 
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
@@ -198,7 +204,6 @@ func logger(w http.ResponseWriter, req *http.Request) {
 	}
 
 	sqlc.PushRows([][]any{logRow}, scl.TBN_HISTORY)
-	_ = logRow
 	w.WriteHeader(http.StatusCreated)
 }
 
@@ -223,6 +228,74 @@ func getUser(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
+func refill(w http.ResponseWriter, req *http.Request) {
+	currId := req.URL.Query().Get("currId")
+	next := nextCrate(currId)
+	row := sqlc.GetRows(
+		fmt.Sprintf(
+			"select Capicite from %s where Article = '%s'",
+			scl.TBN_PICKING,
+			currId,
+		),
+	)
+
+	defer row.Scan()
+	row.Next()
+	var Cap int
+	row.Scan(&Cap)
+
+	var newStock, newPick int
+	if next.Quantite >= Cap {
+		newPick = Cap
+		newStock = next.Quantite - Cap
+	} else {
+		newPick = next.Quantite
+		newStock = 0
+	}
+
+	sqlc.Query(
+		fmt.Sprintf(
+			"UPDATE %s SET Quantite = %d WHERE Article = '%s'",
+			scl.TBN_PICKING,
+			newPick,
+			currId,
+		),
+	)
+
+	if newStock != 0 {
+		sqlc.Query(
+			fmt.Sprintf(
+				"UPDATE %s SET Quantite = %d WHERE Emplacement = '%s'",
+				scl.TBN_STOCK,
+				newStock,
+				next.Emplacement,
+			),
+		)
+	} else {
+		sqlc.Query(
+			fmt.Sprintf(
+				"DELETE FROM %s WHERE Emplacement = '%s'",
+				scl.TBN_STOCK,
+				next.Emplacement,
+			),
+		)
+	}
+
+	// log to server
+	logRow := []any{
+		currId,
+		"out",
+		newPick,
+		next.Emplacement,
+		next.Lot,
+		next.Sous_lot,
+		fmt.Sprint(getCurrentTime()),
+	}
+
+	sqlc.PushRows([][]any{logRow}, scl.TBN_HISTORY)
+	w.WriteHeader(http.StatusCreated)
+}
+
 func main() {
 	http.HandleFunc("/hello", hello)
 	http.HandleFunc("/users", getUser)
@@ -230,35 +303,12 @@ func main() {
 	http.HandleFunc("/nextcrate", getNextCrate)
 	http.HandleFunc("/stock", getStock)
 
-	http.HandleFunc("/koudoular", KOUDOULAR)
-
 	http.HandleFunc("/log", logger)
 	http.HandleFunc("/logs", getLogs)
 
-	if err := http.ListenAndServe("localhost:5050", nil); err != nil {
+	http.HandleFunc("/refill", refill)
+
+	if err := http.ListenAndServe("localhost:5051", nil); err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
-}
-
-func KOUDOULAR(w http.ResponseWriter, req *http.Request) {
-	term("Picking")
-
-	row := sqlc.GetRows(
-		fmt.Sprintf(
-			"SELECT * from %s",
-			scl.TBN_PICKING,
-		),
-	)
-	defer row.Close()
-	var res []PickingElement
-	for row.Next() {
-		new := PickingElement{}
-		row.Scan(&new.Emplacement, &new.Article, &new.Quantite, &new.Capacite)
-		res = append(res, new)
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-
-	json.NewEncoder(w).Encode(res)
 }
