@@ -36,7 +36,7 @@ const (
 	TB_PICKING string = "Picking (Emplacement, Article, Quantite, Capicite) "
 	TB_STOCK   string = "EtatStock (Emplacement, Article, Lot, Sous_lot, Quantite, US, Statut) "
 	TB_USERS   string = "Users (UserId, UserName, UserRole) "
-	TB_HISTORY string = "History (Article, Op, Qte, PosEnStock, Lot, Sous_lot) "
+	TB_HISTORY string = "History (Article, Op, Qte, PosEnStock, Lot, Sous_lot, OpTime) "
 )
 
 func mainExamp() {

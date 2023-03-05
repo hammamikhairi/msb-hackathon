@@ -235,7 +235,7 @@ func main() {
 	http.HandleFunc("/log", logger)
 	http.HandleFunc("/logs", getLogs)
 
-	if err := http.ListenAndServe("localhost:5051", nil); err != nil {
+	if err := http.ListenAndServe("localhost:5050", nil); err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
 }
