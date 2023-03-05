@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"time"
+	// "time"
 )
 
 func term(endp string) {
@@ -40,7 +41,7 @@ type StockRes struct {
 }
 
 type PickingRes struct {
-	Produits []PickingElement
+	Picking []PickingElement
 }
 
 func getPicking(w http.ResponseWriter, req *http.Request) {
@@ -58,13 +59,10 @@ func getPicking(w http.ResponseWriter, req *http.Request) {
 	for row.Next() {
 		new := PickingElement{}
 		row.Scan(&new.Emplacement, &new.Article, &new.Quantite, &new.Capacite)
-		res.Produits = append(res.Produits, new)
+		res.Picking = append(res.Picking, new)
 	}
 
-	// w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 	w.Header().Set("Content-Type", "application/json")
-	// w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-	// w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.WriteHeader(http.StatusOK)
 
 	json.NewEncoder(w).Encode(res)
@@ -100,44 +98,81 @@ type Crate struct {
 	Next string
 }
 
-func getNextCrate(w http.ResponseWriter, req *http.Request) {
-	term("Next Crate")
-	itemId := req.URL.Query().Get("itemId")
-
+func nextCrate(prodId string) StockElement {
 	row := sqlc.GetRows(
 		fmt.Sprintf(
 			ALGORITHM,
-			"Emplacement",
-			itemId,
+			" * ",
+			prodId,
 		),
 	)
 	defer row.Close()
 	row.Next()
 
+	res := StockElement{}
+	row.Scan(&res.Emplacement, &res.Article, &res.Lot, &res.Sous_lot, &res.Quantite, &res.US, nil)
+	return res
+}
+
+func getNextCrate(w http.ResponseWriter, req *http.Request) {
+	term("Next Crate")
+	itemId := req.URL.Query().Get("itemId")
+	elem := nextCrate(itemId)
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
-	res := Crate{}
-	row.Scan(&res.Next)
+	res := Crate{elem.Emplacement}
 	json.NewEncoder(w).Encode(res)
 }
 
 type IncomingLog struct {
-	Qte, State int
-	Produit    string
-	ProduitId  string
-	From       string
+	Qte     int
+	State   string
+	Produit string
 }
 
 type Log struct {
-	Qte, State                   int
-	Produit, Lot, Slot, StockPos string
-	PrduitId, PickPos            string
-	Time                         time.Time
+	Article, Op, PosEnStock, Lot string
+	Sous_lot                     string
+	Qte                          int
+	OpTime                       time.Time
 }
 
-func getLogs(w http.ResponseWriter, req *http.Request) {}
+func getCurrentTime() string {
+	now := time.Now()
+	return now.UTC().Format("2006-01-02 15:04:05")
+}
+
+type Logs struct {
+	Logs []Log
+}
+
+func getLogs(w http.ResponseWriter, req *http.Request) {
+	term("Piping Logs")
+	rows := sqlc.GetRows(
+		fmt.Sprintf(
+			"select * from %s",
+			scl.TBN_HISTORY,
+		),
+	)
+	defer rows.Close()
+
+	logs := Logs{}
+	for rows.Next() {
+		log := Log{}
+		rows.Scan(&log.Article, &log.Op, &log.Qte, &log.PosEnStock, &log.Lot, &log.Sous_lot, &log.OpTime)
+		logs.Logs = append(logs.Logs, log)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	json.NewEncoder(w).Encode(logs)
+}
+
 func logger(w http.ResponseWriter, req *http.Request) {
+	term("logger")
 	if req.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
@@ -150,6 +185,20 @@ func logger(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	next := nextCrate(inc.Produit)
+
+	logRow := []any{
+		inc.Produit,
+		inc.State,
+		inc.Qte,
+		next.Emplacement,
+		next.Lot,
+		next.Sous_lot,
+		fmt.Sprint(getCurrentTime()),
+	}
+
+	sqlc.PushRows([][]any{logRow}, scl.TBN_HISTORY)
+	_ = logRow
 	w.WriteHeader(http.StatusCreated)
 }
 
@@ -180,9 +229,36 @@ func main() {
 	http.HandleFunc("/picking", getPicking)
 	http.HandleFunc("/nextcrate", getNextCrate)
 	http.HandleFunc("/stock", getStock)
-	println("zebi")
 
-	if err := http.ListenAndServe("localhost:5050", nil); err != nil {
+	http.HandleFunc("/koudoular", KOUDOULAR)
+
+	http.HandleFunc("/log", logger)
+	http.HandleFunc("/logs", getLogs)
+
+	if err := http.ListenAndServe("localhost:5051", nil); err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
+}
+
+func KOUDOULAR(w http.ResponseWriter, req *http.Request) {
+	term("Picking")
+
+	row := sqlc.GetRows(
+		fmt.Sprintf(
+			"SELECT * from %s",
+			scl.TBN_PICKING,
+		),
+	)
+	defer row.Close()
+	var res []PickingElement
+	for row.Next() {
+		new := PickingElement{}
+		row.Scan(&new.Emplacement, &new.Article, &new.Quantite, &new.Capacite)
+		res = append(res, new)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	json.NewEncoder(w).Encode(res)
 }
