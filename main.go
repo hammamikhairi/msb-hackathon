@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"time"
-	// "time"
 )
 
 func term(endp string) {
@@ -44,6 +43,33 @@ type PickingRes struct {
 	Picking []PickingElement
 }
 
+type BadStatus struct {
+	Error string
+}
+
+type OKStatus struct {
+	Msg string
+}
+
+const ALGORITHM string = "SELECT %s FROM EtatStock WHERE Article = '%s' and Statut = 'A' ORDER BY SUBSTRING(Lot, 7, 2), SUBSTRING(Lot, 9, 3), Quantite"
+
+type Crate struct {
+	Next string
+}
+
+type IncomingLog struct {
+	Qte     int
+	State   string
+	Produit string
+}
+
+type Log struct {
+	Article, Op, PosEnStock, Lot string
+	Sous_lot                     string
+	Qte                          int
+	OpTime                       time.Time
+}
+
 func getPicking(w http.ResponseWriter, req *http.Request) {
 	term("Picking")
 
@@ -62,8 +88,6 @@ func getPicking(w http.ResponseWriter, req *http.Request) {
 		res.Picking = append(res.Picking, new)
 	}
 
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -89,19 +113,11 @@ func getStock(w http.ResponseWriter, req *http.Request) {
 		res.Produits = append(res.Produits, new)
 	}
 
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
 	json.NewEncoder(w).Encode(res)
-}
-
-const ALGORITHM string = "SELECT %s FROM EtatStock WHERE Article = '%s' and Statut = 'A' ORDER BY SUBSTRING(Lot, 7, 2), SUBSTRING(Lot, 9, 3), Quantite"
-
-type Crate struct {
-	Next string
 }
 
 func nextCrate(prodId string) StockElement {
@@ -126,23 +142,11 @@ func getNextCrate(w http.ResponseWriter, req *http.Request) {
 	elem := nextCrate(itemId)
 
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.WriteHeader(http.StatusOK)
 
-	res := Crate{elem.Emplacement}
-	json.NewEncoder(w).Encode(res)
-}
-
-type IncomingLog struct {
-	Qte     int
-	State   string
-	Produit string
-}
-
-type Log struct {
-	Article, Op, PosEnStock, Lot string
-	Sous_lot                     string
-	Qte                          int
-	OpTime                       time.Time
+	// res := Crate{elem.Emplacement}
+	json.NewEncoder(w).Encode(elem)
 }
 
 func getCurrentTime() string {
@@ -240,6 +244,16 @@ func refill(w http.ResponseWriter, req *http.Request) {
 	)
 
 	defer row.Scan()
+
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	if next.Article == "" {
+
+		rres := BadStatus{"no item found in Stock to replace it"}
+		json.NewEncoder(w).Encode(rres)
+		return
+	}
+
 	row.Next()
 	var Cap int
 	row.Scan(&Cap)
@@ -294,6 +308,9 @@ func refill(w http.ResponseWriter, req *http.Request) {
 
 	sqlc.PushRows([][]any{logRow}, scl.TBN_HISTORY)
 	w.WriteHeader(http.StatusCreated)
+
+	rres := OKStatus{"Article refilled"}
+	json.NewEncoder(w).Encode(rres)
 }
 
 func main() {
@@ -303,6 +320,7 @@ func main() {
 	http.HandleFunc("/nextcrate", getNextCrate)
 	http.HandleFunc("/stock", getStock)
 
+	// http.HandleFunc("/getnext", next)
 	http.HandleFunc("/log", logger)
 	http.HandleFunc("/logs", getLogs)
 
